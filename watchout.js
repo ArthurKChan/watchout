@@ -34,7 +34,37 @@ var updateBestScore = function() {
   d3.select('.high').text(gameStats.highScore.toString());
 };
 
-// *************** ENEMIES ***************
+// *************** Players ***************
+var Player = function(){
+  this.path = 'm0,-10l-7,20l14,0l-7,-20';
+  this.fill = 'green';
+  this.x = 0;
+  this.y = 0;
+  this.r = 5;
+  this.angle = 0;
+};
+
+Player.prototype.render = function(){
+  this.element = gameBoard.append('svg:path')
+    .attr('d', this.path)
+    .attr('fill', this.fill)
+  this.transform(gameOptions.width*0.5, gameOptions.height*0.5)
+
+  // TODO: implement drag listener
+
+
+};
+
+Player.prototype.transform = function(x, y, angle){
+  this.x = x || this.x;
+  this.y = y || this.y;
+  this.angle = angle || this.angle;
+  this.element.attr('transform',
+    'rotate('+this.angle+','+this.x+','+this.y+') '+
+    'translate('+this.x+','+this.y+')');
+};
+
+// *************** Enemies ***************
 var AllEnemies = function(n){
   this.enemies = [];
 
@@ -43,33 +73,48 @@ var AllEnemies = function(n){
   }
 };
 
-AllEnemies.prototype.moveEnemies = function(){
-  _(enemies).map(function(enemy){
+AllEnemies.prototype.render = function() {
+  // Generate new positions first
+  _(this.enemies).map(function(enemy){
     enemy.x = Math.random() * 100;
     enemy.y = Math.random() * 100;
   });
-};
-
-AllEnemies.prototype.render = function() {
+  // Grab / create some enemies
   var enemiesSelector = gameBoard.selectAll('circle.enemy')
     .data(this.enemies, function(d) { return d.id; })
-
+  // Bind transition on position change
+  enemiesSelector.transition().duration(2000)
+    .attr('cx', function(d) { return axes.x(d.x); })
+    .attr('cy', function(d) { return axes.y(d.y); })
+  // If new enemies are created, append them to DOM and transition radius
   enemiesSelector.enter().append('svg:circle')
     .attr('class', 'enemy')
     .attr('cx', function(d){ return axes.x(d.x); })
     .attr('cy', function(d){ return axes.y(d.y); })
-    .attr('r', 10);
+    .attr('r', 0).transition().duration(1000).attr('r',10)
 };
 
 var Enemy = function(id){
   this.id = id;
-  this.x = Math.random() * 100;
-  this.y = Math.random() * 100;
+  this.x;
+  this.y;
 };
 // ***************************************
 
+
+
+/* our ship
+M360,180L371.5470053837925,206.66666666666666L348.4529946162075,206.66666666666669L360,180
+ */
+
+// ***************** Start *****************
 var allEnemies = new AllEnemies(gameOptions.nEnemies);
 allEnemies.render();
+
+setTimeout(function(){
+  allEnemies.render.call(allEnemies);
+  setInterval(allEnemies.render.bind(allEnemies), 2000);
+}, 1000);
 
     // d3.scale.linear().domain([0,100]).range([0, gameOptions.width])(x)
 
