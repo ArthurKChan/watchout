@@ -34,14 +34,42 @@ var updateBestScore = function() {
   d3.select('.high').text(gameStats.highScore.toString());
 };
 
-var enemy = {id: 0, x: 50, y:50};
-gameBoard.selectAll('.enemy')
-  .data([enemy], function(d){ return d.id })
-  .enter().append('svg:circle')
+// *************** ENEMIES ***************
+var AllEnemies = function(n){
+  this.enemies = [];
+
+  for(var i=0; i<n; i++){
+    this.enemies.push(new Enemy(i));
+  }
+};
+
+AllEnemies.prototype.moveEnemies = function(){
+  _(enemies).map(function(enemy){
+    enemy.x = Math.random() * 100;
+    enemy.y = Math.random() * 100;
+  });
+};
+
+AllEnemies.prototype.render = function() {
+  var enemiesSelector = gameBoard.selectAll('circle.enemy')
+    .data(this.enemies, function(d) { return d.id; })
+
+  enemiesSelector.enter().append('svg:circle')
     .attr('class', 'enemy')
     .attr('cx', function(d){ return axes.x(d.x); })
     .attr('cy', function(d){ return axes.y(d.y); })
-    .attr('r', 15)
+    .attr('r', 10);
+};
+
+var Enemy = function(id){
+  this.id = id;
+  this.x = Math.random() * 100;
+  this.y = Math.random() * 100;
+};
+// ***************************************
+
+var allEnemies = new AllEnemies(gameOptions.nEnemies);
+allEnemies.render();
 
     // d3.scale.linear().domain([0,100]).range([0, gameOptions.width])(x)
 
