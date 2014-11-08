@@ -1,37 +1,36 @@
-// start slingin' some d3 here.
+// **************** Game ****************
+var game = {
+  // Environment setup
+  options: {
+    height: 450,
+    width: 700,
+    nEnemies: 30,
+    padding: 20
+  },
 
-// Environment setup
-var gameOptions = {
-  height: 450,
-  width: 700,
-  nEnemies: 30,
-  padding: 20
-}
-
-var gameStats = {
-  score: 0,
-  highScore: 0
-}
-
-// Game board setup
-var axes = {
-  x: d3.scale.linear().domain([0,100]).range([0, gameOptions.width]),
-  y: d3.scale.linear().domain([0,100]).range([0, gameOptions.height])
-}
-
-var gameBoard = d3.select('.container').append('svg')
-  .attr('width', gameOptions.width)
-  .attr('height', gameOptions.height);
-
-// Score setup
-var updateScore = function() {
-  d3.select('.current').text(gameStats.score.toString());
+  stats: {
+    score: 0,
+    highScore: 0
+  }
 };
 
-var updateBestScore = function() {
-  gameStats.highScore = _.max(gameStats.highScore, gameStats.score);
+game.scaleAxes = {
+  x: d3.scale.linear().domain([0,100]).range([0, game.options.width]),
+  y: d3.scale.linear().domain([0,100]).range([0, game.options.height])
+}
 
-  d3.select('.high').text(gameStats.highScore.toString());
+game.board = d3.select('.container').append('svg')
+  .attr('width', game.options.width)
+  .attr('height', game.options.height);
+// Score setup
+game.updateScore = function() {
+  d3.select('.current').text('Score: ' + game.stats.score.toString());
+};
+
+game.updateHighScore = function() {
+  game.stats.highScore = Math.max(game.stats.highScore, game.stats.score);
+
+  d3.select('.high').text('High Score: ' + game.stats.highScore.toString());
 };
 
 // *************** Players ***************
@@ -44,15 +43,21 @@ var Player = function(){
   this.angle = 0;
 };
 
+Player.prototype._dragMove = function() {
+  this.transform(
+    this.x + d3.event.dx,
+    this.y + d3.event.dy,
+    90 + 360 * (Math.atan2(d3.event.dy, d3.event.dx) / (Math.PI * 2))
+  );
+};
+
 Player.prototype.render = function(){
-  this.element = gameBoard.append('svg:path')
+  this.element = game.board.append('svg:path')
     .attr('d', this.path)
-    .attr('fill', this.fill)
-  this.transform(gameOptions.width*0.5, gameOptions.height*0.5)
+    .attr('fill', this.fill);
 
-  // TODO: implement drag listener
-
-
+  this.transform(game.options.width*0.5, game.options.height*0.5);
+  this.element.call(d3.behavior.drag().on('drag', this._dragMove.bind(this)));
 };
 
 Player.prototype.transform = function(x, y, angle){
@@ -73,6 +78,10 @@ var AllEnemies = function(n){
   }
 };
 
+AllEnemies.prototype._tweenWithCollisionDetection = function(endData) {
+  // TODO: implement
+}
+
 AllEnemies.prototype.render = function() {
   // Generate new positions first
   _(this.enemies).map(function(enemy){
@@ -80,17 +89,17 @@ AllEnemies.prototype.render = function() {
     enemy.y = Math.random() * 100;
   });
   // Grab / create some enemies
-  var enemiesSelector = gameBoard.selectAll('circle.enemy')
+  var enemiesSelector = game.board.selectAll('circle.enemy')
     .data(this.enemies, function(d) { return d.id; })
   // Bind transition on position change
   enemiesSelector.transition().duration(2000)
-    .attr('cx', function(d) { return axes.x(d.x); })
-    .attr('cy', function(d) { return axes.y(d.y); })
+    .attr('cx', function(d) { return game.scaleAxes.x(d.x); })
+    .attr('cy', function(d) { return game.scaleAxes.y(d.y); })
   // If new enemies are created, append them to DOM and transition radius
   enemiesSelector.enter().append('svg:circle')
     .attr('class', 'enemy')
-    .attr('cx', function(d){ return axes.x(d.x); })
-    .attr('cy', function(d){ return axes.y(d.y); })
+    .attr('cx', function(d){ return game.scaleAxes.x(d.x); })
+    .attr('cy', function(d){ return game.scaleAxes.y(d.y); })
     .attr('r', 0).transition().duration(1000).attr('r',10)
 };
 
@@ -99,40 +108,27 @@ var Enemy = function(id){
   this.x;
   this.y;
 };
-// ***************************************
-
-
-
-/* our ship
-M360,180L371.5470053837925,206.66666666666666L348.4529946162075,206.66666666666669L360,180
- */
 
 // ***************** Start *****************
-var allEnemies = new AllEnemies(gameOptions.nEnemies);
-allEnemies.render();
+var startGame = function () {
+  var allEnemies = new AllEnemies(game.options.nEnemies);
+  var player = new Player();
+  var startMovement = function() {
+    allEnemies.render.call(allEnemies);
+    setInterval(allEnemies.render.bind(allEnemies), 2000);
+  };
+  var increaseScore = function() {
+    game.stats.score++;
+    game.updateScore();
+    game.updateHighScore();
+  };
 
-setTimeout(function(){
-  allEnemies.render.call(allEnemies);
-  setInterval(allEnemies.render.bind(allEnemies), 2000);
-}, 1000);
+  allEnemies.render();
+  player.render();
+  setTimeout(startMovement, 1000);
+  setInterval(increaseScore, 50);
+};
 
-    // d3.scale.linear().domain([0,100]).range([0, gameOptions.width])(x)
+startGame();
 
-// // Player setup
-// var Player = function(){
-//   this.path;
-//   this.fill;
-//   this.x;
-//   this.y;
-//   this.angle;
-//   this.r;
-//   this.gameOptions = gameOptions;
-// };
-
-// Player.prototype.render = function(to) {
-//   this.el = to.append('svg:path')
-//     .attr('d', this.path)
-//     .attr('fill', this.fill);
-
-// }
 
