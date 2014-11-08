@@ -10,7 +10,8 @@ var game = {
 
   stats: {
     score: 0,
-    highScore: 0
+    highScore: 0,
+    collisions: 0
   }
 };
 
@@ -23,7 +24,13 @@ game.board = d3.select('.container').append('svg')
   .attr('width', game.options.width)
   .attr('height', game.options.height);
 // Score setup
-game.updateScore = function() {
+game.updateCollisions = function() {
+  game.stats.collisions++;
+  d3.select('.collisions').text('Collisions: ' + game.stats.collisions.toString());
+};
+
+game.updateScore = function(newScore) {
+  if (newScore !== undefined) { game.stats.score = newScore; }
   d3.select('.current').text('Score: ' + game.stats.score.toString());
 };
 
@@ -33,13 +40,30 @@ game.updateHighScore = function() {
   d3.select('.high').text('High Score: ' + game.stats.highScore.toString());
 };
 
+game.checkCollision = function(enemy, collisionCallback){
+  dangerZone = parseFloat(enemy.attr('r')) + game.player.r;
+  xDiff = parseFloat(enemy.attr('cx')) - game.player.x;
+  yDiff = parseFloat(enemy.attr('cy')) - game.player.y;
+
+  separation = Math.sqrt( Math.pow(xDiff, 2) + Math.pow(yDiff, 2) )
+  if (separation < dangerZone) {
+    collisionCallback(game.player, enemy);
+  }
+};
+
+game.onCollision = function(){
+  game.updateHighScore();
+  game.updateScore(0);
+  game.updateCollisions();
+};
+
 // *************** Players ***************
 var Player = function(){
-  this.path = 'm0,-10l-7,20l14,0l-7,-20';
+  this.path = 'm0,-13l-7,20l14,0z';
   this.fill = 'green';
+  this.r = 7;
   this.x = 0;
   this.y = 0;
-  this.r = 5;
   this.angle = 0;
 };
 
@@ -79,8 +103,23 @@ var AllEnemies = function(n){
 };
 
 AllEnemies.prototype._tweenWithCollisionDetection = function(endData) {
-  // TODO: implement
-}
+  var enemy = d3.select(this);
+  var startPos = {
+    x: parseFloat(enemy.attr('cx')),
+    y: parseFloat(enemy.attr('cy'))
+  }
+  var endPos = {
+    x: game.scaleAxes.x(endData.x),
+    y: game.scaleAxes.y(endData.y)
+  }
+
+  return function(t){
+    game.checkCollision(enemy, game.onCollision);
+
+    enemy.attr('cx', startPos.x + (endPos.x - startPos.x) * t)
+         .attr('cy', startPos.y + (endPos.y - startPos.y) * t);
+  };
+};
 
 AllEnemies.prototype.render = function() {
   // Generate new positions first
@@ -93,14 +132,15 @@ AllEnemies.prototype.render = function() {
     .data(this.enemies, function(d) { return d.id; })
   // Bind transition on position change
   enemiesSelector.transition().duration(2000)
-    .attr('cx', function(d) { return game.scaleAxes.x(d.x); })
-    .attr('cy', function(d) { return game.scaleAxes.y(d.y); })
+    .tween('custom', this._tweenWithCollisionDetection);
+    // .attr('cx', function(d) { return game.scaleAxes.x(d.x); })
+    // .attr('cy', function(d) { return game.scaleAxes.y(d.y); })
   // If new enemies are created, append them to DOM and transition radius
   enemiesSelector.enter().append('svg:circle')
     .attr('class', 'enemy')
     .attr('cx', function(d){ return game.scaleAxes.x(d.x); })
     .attr('cy', function(d){ return game.scaleAxes.y(d.y); })
-    .attr('r', 0).transition().duration(1000).attr('r',10)
+    .attr('r', 0).transition().duration(1000).attr('r',10);
 };
 
 var Enemy = function(id){
@@ -111,20 +151,19 @@ var Enemy = function(id){
 
 // ***************** Start *****************
 var startGame = function () {
-  var allEnemies = new AllEnemies(game.options.nEnemies);
-  var player = new Player();
+  game.allEnemies = new AllEnemies(game.options.nEnemies);
+  game.player = new Player();
   var startMovement = function() {
-    allEnemies.render.call(allEnemies);
-    setInterval(allEnemies.render.bind(allEnemies), 2000);
+    game.allEnemies.render.call(game.allEnemies);
+    setInterval(game.allEnemies.render.bind(game.allEnemies), 2000);
   };
   var increaseScore = function() {
-    game.stats.score++;
-    game.updateScore();
+    game.updateScore(1 + game.stats.score);
     game.updateHighScore();
   };
 
-  allEnemies.render();
-  player.render();
+  game.allEnemies.render();
+  game.player.render();
   setTimeout(startMovement, 1000);
   setInterval(increaseScore, 50);
 };
